@@ -32,8 +32,8 @@ export type UserPlan = {
 };
 
 export type Prediction = {
-  id: string;
-  plan_id: string;
+  id?: string;
+  plan_id?: string;
   failure_probability: number;
   predicted_timeline: { month: number; event: string; severity: 'low' | 'medium' | 'high' | 'critical' }[];
   failure_points: { point: string; severity: 'low' | 'medium' | 'high' | 'critical'; reason: string }[];
