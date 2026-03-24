@@ -31,7 +31,7 @@ const INDUSTRIES = [
 const STAGES = ['Idea', 'MVP', 'Growth', 'Scaling', 'Mature'];
 
 export default function Home() {
-  const { theme, toggleTheme } = useTheme();
+  const { theme, toggleTheme, mounted } = useTheme();
   const [step, setStep] = useState<'input' | 'analyzing' | 'results'>('input');
   const [title, setTitle] = useState('');
   const [planContent, setPlanContent] = useState('');
@@ -148,11 +148,11 @@ export default function Home() {
               className="p-2.5 rounded-xl bg-[var(--muted)] hover:bg-[var(--accent)] border border-[var(--border)] transition-all hover:scale-105"
               aria-label="Toggle theme"
             >
-              {theme === 'dark' ? (
+              {mounted && (theme === 'dark' ? (
                 <Sun className="w-5 h-5 text-amber-500" />
               ) : (
                 <Moon className="w-5 h-5 text-[var(--primary)]" />
-              )}
+              ))}
             </button>
           </div>
         </div>
