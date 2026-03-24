@@ -45,25 +45,29 @@ export default function Home() {
     
     setStep('analyzing');
 
-    const { data: plan, error: planError } = await supabase
-      .from('user_plans')
-      .insert({
-        title,
-        plan_content: planContent,
-        industry: industry || 'Other',
-        stage: stage.toLowerCase() || 'idea',
-        status: 'analyzing'
-      })
-      .select()
-      .single();
+    let planId: string | null = null;
 
-    if (planError) {
-      console.error('Error creating plan:', planError);
-      setStep('input');
-      return;
+    if (supabase) {
+      const { data: plan, error: planError } = await supabase
+        .from('user_plans')
+        .insert({
+          title,
+          plan_content: planContent,
+          industry: industry || 'Other',
+          stage: stage.toLowerCase() || 'idea',
+          status: 'analyzing'
+        })
+        .select()
+        .single();
+
+      if (planError) {
+        console.error('Error creating plan:', planError);
+        setStep('input');
+        return;
+      }
+      planId = plan.id;
+      setPlanId(plan.id);
     }
-
-    setPlanId(plan.id);
 
     const analysis = await analyzePlan({
       title,
@@ -72,30 +76,35 @@ export default function Home() {
       stage: stage.toLowerCase() || 'idea',
     });
 
-    const { data: pred, error: predError } = await supabase
-      .from('predictions')
-      .insert({
-        plan_id: plan.id,
-        failure_probability: analysis.failure_probability,
-        predicted_timeline: analysis.predicted_timeline,
-        failure_points: analysis.failure_points,
-        prevention_strategies: analysis.prevention_strategies,
-        confidence_score: analysis.confidence_score,
-        analysis_text: analysis.analysis_text
-      })
-      .select()
-      .single();
+    if (supabase && planId) {
+      const { data: pred, error: predError } = await supabase
+        .from('predictions')
+        .insert({
+          plan_id: planId,
+          failure_probability: analysis.failure_probability,
+          predicted_timeline: analysis.predicted_timeline,
+          failure_points: analysis.failure_points,
+          prevention_strategies: analysis.prevention_strategies,
+          confidence_score: analysis.confidence_score,
+          analysis_text: analysis.analysis_text
+        })
+        .select()
+        .single();
 
-    if (predError) {
-      console.error('Error creating prediction:', predError);
+      if (predError) {
+        console.error('Error creating prediction:', predError);
+      }
+
+      await supabase
+        .from('user_plans')
+        .update({ status: 'analyzed' })
+        .eq('id', planId);
+
+      setPrediction(pred || analysis);
+    } else {
+      setPrediction(analysis);
     }
-
-    await supabase
-      .from('user_plans')
-      .update({ status: 'analyzed' })
-      .eq('id', plan.id);
-
-    setPrediction(pred || analysis);
+    
     setStep('results');
   };
 

@@ -24,6 +24,8 @@ interface PreventionStrategy {
 }
 
 interface AnalysisResult {
+  id?: string;
+  plan_id?: string;
   failure_probability: number;
   predicted_timeline: TimelineEvent[];
   failure_points: FailurePoint[];
