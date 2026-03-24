@@ -1,10 +1,12 @@
 import OpenAI from 'openai';
 import { NextRequest, NextResponse } from 'next/server';
 
-const openai = new OpenAI({
-  apiKey: process.env.GROQ_API_KEY,
-  baseURL: 'https://api.groq.com/openai/v1',
-});
+function getOpenAIClient() {
+  return new OpenAI({
+    apiKey: process.env.GROQ_API_KEY,
+    baseURL: 'https://api.groq.com/openai/v1',
+  });
+}
 
 interface Message {
   role: 'user' | 'assistant';
@@ -51,6 +53,7 @@ If the user asks about topics unrelated to their plan or business failure/succes
     const systemMessage = { role: 'system' as const, content: contextPrompt };
     const conversationHistory = [systemMessage, ...messages];
 
+    const openai = getOpenAIClient();
     const response = await openai.chat.completions.create({
       model: 'llama-3.3-70b-versatile',
       messages: conversationHistory,

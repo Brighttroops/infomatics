@@ -1,10 +1,12 @@
 import OpenAI from 'openai';
 import { NextRequest, NextResponse } from 'next/server';
 
-const openai = new OpenAI({
-  apiKey: process.env.GROQ_API_KEY,
-  baseURL: 'https://api.groq.com/openai/v1',
-});
+function getOpenAIClient() {
+  return new OpenAI({
+    apiKey: process.env.GROQ_API_KEY,
+    baseURL: 'https://api.groq.com/openai/v1',
+  });
+}
 
 interface AnalysisInput {
   title: string;
@@ -72,6 +74,8 @@ Respond ONLY with valid JSON in this exact format:
   "analysis_text": "2-3 sentence summary"
 }`;
 
+    const openai = getOpenAIClient();
+    
     const response = await openai.chat.completions.create({
       model: 'llama-3.3-70b-versatile',
       messages: [{ role: 'user', content: prompt }],
