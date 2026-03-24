@@ -65,9 +65,13 @@ AI-generated failure predictions for each plan.
 
 ## API Endpoints (Supabase Edge Functions)
 
-### POST /analyze-plan
-Input: `{ plan_content, industry, stage }`
-Output: Full prediction with timeline and strategies
+### POST /api/analyze
+Input: `{ title, planContent, industry, stage }`
+Output: Full prediction with timeline, failure points, and prevention strategies
+
+### POST /api/chat
+Input: `{ messages, planContext }`
+Output: AI response for follow-up questions about the analysis
 
 ### GET /predictions/:plan_id
 Retrieve prediction for a specific plan
@@ -106,6 +110,40 @@ Get aggregated failure patterns by industry/stage
 - Prediction accuracy tracking
 - User return rate
 - Prevention success stories
+
+## Core Features
+
+1. **Plan Submission**
+   - Rich text editor for plan details
+   - Industry selection
+   - Current stage picker
+
+2. **Failure Analysis**
+   - Pattern matching against knowledge base
+   - AI-powered deep analysis
+   - Risk scoring
+
+3. **Timeline Visualization**
+   - Interactive failure timeline
+   - Critical failure points highlighted
+   - Prevention checkpoints
+
+4. **Strategy Generator**
+   - Specific actionable recommendations
+   - Priority ranking
+   - Resource suggestions
+
+5. **Failure Knowledge Base**
+   - Browsable catalog of documented failures
+   - Searchable by industry/type
+   - Learn from others' mistakes
+
+6. **Discussion Chat Interface**
+   - Post-analysis conversational AI
+   - Follow-up questions about failure points
+   - Deeper insights on prevention strategies
+   - Context-aware responses based on analysis results
+   - Collapsible chat panel with quick action suggestions
 
 ## Future Enhancements
 - Community failure stories

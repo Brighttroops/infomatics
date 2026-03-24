@@ -1,10 +1,12 @@
 'use client';
 
 import { useState } from 'react';
-import { supabase, Prediction, UserPlan } from '@/lib/supabase';
+import { supabase, Prediction } from '@/lib/supabase';
+import { analyzePlan } from '@/lib/analyze';
+import { useTheme } from './providers';
+import Chat from '@/components/Chat';
 import { 
   AlertTriangle, 
-  TrendingDown, 
   Shield, 
   Clock, 
   Target,
@@ -13,7 +15,11 @@ import {
   Zap,
   AlertCircle,
   CheckCircle2,
-  Loader2
+  Loader2,
+  Skull,
+  Sparkles,
+  Sun,
+  Moon
 } from 'lucide-react';
 
 const INDUSTRIES = [
@@ -25,15 +31,16 @@ const INDUSTRIES = [
 const STAGES = ['Idea', 'MVP', 'Growth', 'Scaling', 'Mature'];
 
 export default function Home() {
+  const { theme, toggleTheme } = useTheme();
   const [step, setStep] = useState<'input' | 'analyzing' | 'results'>('input');
   const [title, setTitle] = useState('');
   const [planContent, setPlanContent] = useState('');
   const [industry, setIndustry] = useState('');
   const [stage, setStage] = useState('');
   const [prediction, setPrediction] = useState<Prediction | null>(null);
-  const [planId, setPlanId] = useState<string | null>(null);
+  const [, setPlanId] = useState<string | null>(null);
 
-  const analyzePlan = async () => {
+  const runAnalysis = async () => {
     if (!title || !planContent) return;
     
     setStep('analyzing');
@@ -58,11 +65,12 @@ export default function Home() {
 
     setPlanId(plan.id);
 
-    const { data: failureCases } = await supabase
-      .from('failure_cases')
-      .select('*');
-
-    const analysis = generateMockPrediction(plan, failureCases || []);
+    const analysis = await analyzePlan({
+      title,
+      planContent,
+      industry: industry || 'Other',
+      stage: stage.toLowerCase() || 'idea',
+    });
 
     const { data: pred, error: predError } = await supabase
       .from('predictions')
@@ -91,49 +99,93 @@ export default function Home() {
     setStep('results');
   };
 
+  const getSeverityColor = (prob: number) => {
+    if (prob > 0.7) return { bg: 'from-red-600 to-red-700', text: 'text-red-500', glow: 'shadow-red-500/30' };
+    if (prob > 0.4) return { bg: 'from-amber-500 to-orange-600', text: 'text-amber-500', glow: 'shadow-amber-500/30' };
+    return { bg: 'from-green-500 to-emerald-600', text: 'text-green-500', glow: 'shadow-green-500/30' };
+  };
+
+  const severityColors = getSeverityColor(prediction?.failure_probability || 0);
+
   return (
-    <main className="min-h-screen bg-[#0a0a0a] text-white">
-      <header className="border-b border-[#262626] py-6">
-        <div className="max-w-6xl mx-auto px-6 flex items-center gap-3">
-          <div className="w-10 h-10 rounded-lg bg-[#ef4444] flex items-center justify-center animate-pulse-glow">
-            <TrendingDown className="w-6 h-6" />
+    <main className="min-h-screen bg-[var(--background)] text-[var(--foreground)] relative overflow-hidden">
+      <div className="fixed inset-0 dark:bg-gradient-to-br dark:from-red-950/20 dark:via-transparent dark:to-transparent bg-gradient-to-br from-red-100/50 via-transparent to-transparent pointer-events-none transition-colors duration-300" />
+      <div className="fixed inset-0 dark:bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] dark:from-red-900/10 dark:via-transparent dark:to-transparent bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-red-200/30 via-transparent to-transparent pointer-events-none transition-colors duration-300" />
+      
+      <header className="relative border-b border-[var(--border)] backdrop-blur-sm py-6 transition-colors duration-300">
+        <div className="max-w-6xl mx-auto px-6 flex items-center gap-4">
+          <div className="relative">
+            <div className="absolute inset-0 bg-[var(--primary)] rounded-xl blur-xl opacity-50 animate-pulse dark:opacity-50" />
+            <div className="relative w-12 h-12 rounded-xl bg-gradient-to-br from-[var(--primary)] to-[var(--destructive)] flex items-center justify-center animate-pulse-glow">
+              <Skull className="w-7 h-7" />
+            </div>
           </div>
           <div>
-            <h1 className="text-xl font-bold">Inverse Prediction Engine</h1>
-            <p className="text-sm text-[#737373]">See how your plan will fail before it does</p>
+            <h1 className="text-2xl font-black tracking-tight">
+              <span className="text-gradient">Inverse Prediction Engine</span>
+            </h1>
+            <p className="text-sm text-[var(--muted-foreground)] flex items-center gap-2">
+              <Sparkles className="w-3 h-3" />
+              See how your plan will fail before it does
+            </p>
+          </div>
+          <div className="ml-auto flex items-center gap-4">
+            <div className="hidden sm:flex items-center gap-2 text-xs text-[var(--muted-foreground)]">
+              <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
+              Powered by Groq AI
+            </div>
+            <button
+              onClick={toggleTheme}
+              className="p-2.5 rounded-xl bg-[var(--muted)] hover:bg-[var(--accent)] border border-[var(--border)] transition-all hover:scale-105"
+              aria-label="Toggle theme"
+            >
+              {theme === 'dark' ? (
+                <Sun className="w-5 h-5 text-amber-500" />
+              ) : (
+                <Moon className="w-5 h-5 text-[var(--primary)]" />
+              )}
+            </button>
           </div>
         </div>
       </header>
 
-      <div className="max-w-6xl mx-auto px-6 py-12">
+      <div className="max-w-6xl mx-auto px-6 py-12 relative">
         {step === 'input' && (
-          <div className="max-w-2xl mx-auto animate-fade-in">
-            <div className="text-center mb-10">
-              <h2 className="text-3xl font-bold mb-3">Submit Your Plan</h2>
-              <p className="text-[#737373]">
-                Our AI has studied thousands of failures. Enter your plan and we'll predict its doom.
+          <div className="max-w-2xl mx-auto animate-fade-in-up">
+            <div className="text-center mb-12">
+              <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-[var(--primary)]/10 border border-[var(--primary)]/20 text-[var(--primary)] text-sm font-medium mb-6">
+                <Brain className="w-4 h-4" />
+                AI-Powered Analysis
+              </div>
+              <h2 className="text-4xl md:text-5xl font-black mb-4 tracking-tight">
+                Submit Your <span className="text-gradient">Business Plan</span>
+              </h2>
+              <p className="text-[var(--muted-foreground)] text-lg max-w-md mx-auto">
+                Our AI has studied thousands of failures. Enter your plan and we will predict its doom.
               </p>
             </div>
 
             <div className="space-y-6">
-              <div>
-                <label className="block text-sm font-medium mb-2">Plan Title</label>
-                <input
-                  type="text"
-                  value={title}
-                  onChange={(e) => setTitle(e.target.value)}
-                  placeholder="The Next Unicorn"
-                  className="w-full px-4 py-3 bg-[#111111] border border-[#262626] rounded-lg focus:outline-none focus:border-[#ef4444] transition-colors"
-                />
+              <div className="group">
+                <label className="block text-sm font-semibold mb-2 text-[var(--foreground)] group-focus-within:text-[var(--primary)] transition-colors">Plan Title</label>
+                <div className="relative">
+                  <input
+                    type="text"
+                    value={title}
+                    onChange={(e) => setTitle(e.target.value)}
+                    placeholder="The Next Unicorn"
+                    className="w-full px-5 py-4 bg-[var(--card)]/80 backdrop-blur border border-[var(--border)] rounded-xl focus:outline-none focus:border-[var(--primary)] focus:ring-2 focus:ring-[var(--primary)]/20 transition-all placeholder:text-[var(--muted-foreground)]"
+                  />
+                </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium mb-2">Industry</label>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="group">
+                  <label className="block text-sm font-semibold mb-2 text-[var(--foreground)] group-focus-within:text-[var(--primary)] transition-colors">Industry</label>
                   <select
                     value={industry}
                     onChange={(e) => setIndustry(e.target.value)}
-                    className="w-full px-4 py-3 bg-[#111111] border border-[#262626] rounded-lg focus:outline-none focus:border-[#ef4444] transition-colors"
+                    className="w-full px-5 py-4 bg-[var(--card)]/80 backdrop-blur border border-[var(--border)] rounded-xl focus:outline-none focus:border-[var(--primary)] focus:ring-2 focus:ring-[var(--primary)]/20 transition-all appearance-none cursor-pointer"
                   >
                     <option value="">Select industry</option>
                     {INDUSTRIES.map(i => (
@@ -141,12 +193,12 @@ export default function Home() {
                     ))}
                   </select>
                 </div>
-                <div>
-                  <label className="block text-sm font-medium mb-2">Stage</label>
+                <div className="group">
+                  <label className="block text-sm font-semibold mb-2 text-[var(--foreground)] group-focus-within:text-[var(--primary)] transition-colors">Stage</label>
                   <select
                     value={stage}
                     onChange={(e) => setStage(e.target.value)}
-                    className="w-full px-4 py-3 bg-[#111111] border border-[#262626] rounded-lg focus:outline-none focus:border-[#ef4444] transition-colors"
+                    className="w-full px-5 py-4 bg-[var(--card)]/80 backdrop-blur border border-[var(--border)] rounded-xl focus:outline-none focus:border-[var(--primary)] focus:ring-2 focus:ring-[var(--primary)]/20 transition-all appearance-none cursor-pointer"
                   >
                     <option value="">Select stage</option>
                     {STAGES.map(s => (
@@ -156,168 +208,190 @@ export default function Home() {
                 </div>
               </div>
 
-              <div>
-                <label className="block text-sm font-medium mb-2">Your Plan</label>
+              <div className="group">
+                <label className="block text-sm font-semibold mb-2 text-[var(--foreground)] group-focus-within:text-[var(--primary)] transition-colors">Your Plan</label>
                 <textarea
                   value={planContent}
                   onChange={(e) => setPlanContent(e.target.value)}
                   placeholder="Describe your business model, target market, revenue strategy, and growth plan..."
-                  rows={10}
-                  className="w-full px-4 py-3 bg-[#111111] border border-[#262626] rounded-lg focus:outline-none focus:border-[#ef4444] transition-colors resize-none"
+                  rows={8}
+                  className="w-full px-5 py-4 bg-[var(--card)]/80 backdrop-blur border border-[var(--border)] rounded-xl focus:outline-none focus:border-[var(--primary)] focus:ring-2 focus:ring-[var(--primary)]/20 transition-all resize-none placeholder:text-[var(--muted-foreground)]"
                 />
               </div>
 
               <button
-                onClick={analyzePlan}
+                onClick={runAnalysis}
                 disabled={!title || !planContent}
-                className="w-full py-4 bg-[#ef4444] hover:bg-[#dc2626] disabled:bg-[#262626] disabled:text-[#737373] rounded-lg font-semibold flex items-center justify-center gap-2 transition-colors"
+                className="group relative w-full py-5 bg-gradient-to-r from-[var(--primary)] to-[var(--destructive)] hover:opacity-90 disabled:from-[var(--muted)] disabled:to-[var(--muted)] disabled:text-[var(--muted-foreground)] rounded-xl font-bold text-lg flex items-center justify-center gap-3 transition-all duration-300 disabled:cursor-not-allowed shadow-lg shadow-[var(--primary)]/25 hover:shadow-[var(--primary)]/40 disabled:shadow-none"
               >
-                <Brain className="w-5 h-5" />
-                Predict My Failure
-                <ChevronRight className="w-5 h-5" />
+                <span className="absolute inset-0 rounded-xl bg-white/5 opacity-0 group-hover:opacity-100 transition-opacity" />
+                <Brain className="w-6 h-6 relative z-10" />
+                <span className="relative z-10">Predict My Failure</span>
+                <ChevronRight className="w-6 h-6 relative z-10 group-hover:translate-x-1 transition-transform" />
               </button>
+              
+              <p className="text-center text-xs text-[var(--muted-foreground)]">
+                Analysis powered by Groq&apos;s Llama model. Free and fast.
+              </p>
             </div>
           </div>
         )}
 
         {step === 'analyzing' && (
-          <div className="text-center py-20 animate-fade-in">
-            <div className="w-20 h-20 mx-auto mb-6 rounded-full bg-[#ef4444]/20 flex items-center justify-center">
-              <Loader2 className="w-10 h-10 animate-spin text-[#ef4444]" />
+          <div className="text-center py-24 animate-fade-in-up">
+            <div className="relative inline-block mb-8">
+              <div className="absolute inset-0 bg-[var(--primary)] rounded-full blur-3xl opacity-30 animate-pulse" />
+              <div className="relative w-24 h-24 rounded-full bg-gradient-to-br from-[var(--primary)]/20 to-[var(--primary)]/20 border border-[var(--primary)]/30 flex items-center justify-center">
+                <Brain className="w-12 h-12 text-[var(--primary)] animate-pulse" />
+              </div>
             </div>
-            <h2 className="text-2xl font-bold mb-2">Analyzing Your Plan</h2>
-            <p className="text-[#737373]">
-              Cross-referencing against {1000 + Math.floor(Math.random() * 2000)} failure patterns...
+            <h2 className="text-3xl font-bold mb-3">Analyzing Your Plan</h2>
+            <p className="text-[var(--muted-foreground)] text-lg mb-6">
+              Cross-referencing against failure patterns...
             </p>
+            <div className="flex items-center justify-center gap-2 text-sm text-[var(--muted-foreground)]">
+              <Loader2 className="w-4 h-4 animate-spin text-[var(--primary)]" />
+              Processing with AI
+            </div>
           </div>
         )}
 
         {step === 'results' && prediction && (
-          <div className="animate-fade-in space-y-8">
-            <div className="text-center mb-10">
-              <h2 className="text-3xl font-bold mb-3">Prediction Complete</h2>
-              <p className="text-[#737373]">Here's how your plan will likely fail</p>
+          <div className="space-y-8 animate-fade-in-up">
+            <div className="text-center mb-12">
+              <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-green-500/10 border border-green-500/20 text-green-500 text-sm font-medium mb-4">
+                <Sparkles className="w-4 h-4" />
+                Analysis Complete
+              </div>
+              <h2 className="text-4xl font-black mb-2">
+                Your <span className="text-gradient">Results</span> Are In
+              </h2>
             </div>
 
-            {/* Failure Probability */}
-            <div className="bg-[#111111] border border-[#262626] rounded-2xl p-8">
-              <div className="flex items-center gap-4 mb-6">
-                <div className={`w-16 h-16 rounded-full flex items-center justify-center ${
-                  prediction.failure_probability > 0.7 ? 'bg-[#dc2626]' : 
-                  prediction.failure_probability > 0.4 ? 'bg-[#ca8a04]' : 'bg-[#16a34a]'
-                }`}>
-                  <AlertTriangle className="w-8 h-8" />
+            <div className={`bg-gradient-to-br from-[var(--card)] to-[var(--background)] border border-[var(--border)] rounded-3xl p-8 shadow-2xl ${severityColors.glow} animate-scale-in`}>
+              <div className="flex flex-col md:flex-row items-start md:items-center gap-6 mb-8">
+                <div className={`relative`}>
+                  <div className={`absolute inset-0 bg-gradient-to-br ${severityColors.bg} rounded-2xl blur-xl opacity-50`} />
+                  <div className={`relative w-20 h-20 rounded-2xl bg-gradient-to-br ${severityColors.bg} flex items-center justify-center shadow-lg`}>
+                    <AlertTriangle className="w-10 h-10 text-white" />
+                  </div>
                 </div>
-                <div>
-                  <p className="text-sm text-[#737373]">Predicted Failure Probability</p>
-                  <p className="text-4xl font-bold">
+                <div className="flex-1">
+                  <p className="text-sm text-[var(--muted-foreground)] mb-1">Predicted Failure Probability</p>
+                  <p className={`text-6xl font-black ${severityColors.text}`}>
                     {Math.round(prediction.failure_probability * 100)}%
                   </p>
                 </div>
+                <div className="text-right">
+                  <p className="text-sm text-[var(--muted-foreground)]">Confidence</p>
+                  <p className="text-2xl font-bold text-[var(--foreground)]">
+                    {Math.round(prediction.confidence_score * 100)}%
+                  </p>
+                </div>
               </div>
-              <div className="h-3 bg-[#262626] rounded-full overflow-hidden">
+              <div className="h-4 bg-[var(--muted)] rounded-full overflow-hidden">
                 <div 
-                  className={`h-full transition-all ${
-                    prediction.failure_probability > 0.7 ? 'bg-[#dc2626]' : 
-                    prediction.failure_probability > 0.4 ? 'bg-[#ca8a04]' : 'bg-[#16a34a]'
-                  }`}
+                  className={`h-full bg-gradient-to-r ${severityColors.bg} rounded-full transition-all duration-1000 ease-out shadow-lg animate-progress-pulse`}
                   style={{ width: `${prediction.failure_probability * 100}%` }}
                 />
               </div>
-              <p className="text-sm text-[#737373] mt-3">
-                Confidence: {Math.round(prediction.confidence_score * 100)}%
-              </p>
             </div>
 
-            {/* Failure Timeline */}
-            <div className="bg-[#111111] border border-[#262626] rounded-2xl p-8">
-              <div className="flex items-center gap-3 mb-6">
-                <Clock className="w-6 h-6 text-[#ef4444]" />
-                <h3 className="text-xl font-bold">Predicted Failure Timeline</h3>
-              </div>
-              <div className="space-y-4">
-                {prediction.predicted_timeline.map((event, i) => (
-                  <div key={i} className="flex gap-4 items-start">
-                    <div className={`w-3 h-3 rounded-full mt-1.5 ${
-                      event.severity === 'critical' ? 'bg-[#dc2626]' :
-                      event.severity === 'high' ? 'bg-[#ea580c]' :
-                      event.severity === 'medium' ? 'bg-[#ca8a04]' : 'bg-[#16a34a]'
-                    }`} />
-                    <div className="flex-1 pb-4 border-b border-[#262626] last:border-0">
-                      <div className="flex items-center gap-2 mb-1">
-                        <span className="text-sm text-[#737373]">Month {event.month}</span>
-                        <span className={`text-xs px-2 py-0.5 rounded ${
-                          event.severity === 'critical' ? 'bg-[#dc2626]/20 text-[#dc2626]' :
-                          event.severity === 'high' ? 'bg-[#ea580c]/20 text-[#ea580c]' :
-                          event.severity === 'medium' ? 'bg-[#ca8a04]/20 text-[#ca8a04]' : 'bg-[#16a34a]/20 text-[#16a34a]'
-                        }`}>
-                          {event.severity}
-                        </span>
-                      </div>
-                      <p className="text-[#ededed]">{event.event}</p>
-                    </div>
+            <div className="grid gap-6 md:grid-cols-2">
+              <div className="bg-gradient-to-br from-[var(--card)] to-[var(--background)] border border-[var(--border)] rounded-2xl p-6 card-hover animate-slide-in stagger-1">
+                <div className="flex items-center gap-3 mb-6">
+                  <div className="w-10 h-10 rounded-xl bg-[var(--primary)]/20 flex items-center justify-center">
+                    <Clock className="w-5 h-5 text-[var(--primary)]" />
                   </div>
-                ))}
-              </div>
-            </div>
-
-            {/* Failure Points */}
-            <div className="bg-[#111111] border border-[#262626] rounded-2xl p-8">
-              <div className="flex items-center gap-3 mb-6">
-                <Target className="w-6 h-6 text-[#ef4444]" />
-                <h3 className="text-xl font-bold">Critical Failure Points</h3>
-              </div>
-              <div className="grid gap-4">
-                {prediction.failure_points.map((point, i) => (
-                  <div key={i} className="p-4 bg-[#0a0a0a] rounded-lg border border-[#262626]">
-                    <div className="flex items-center gap-2 mb-2">
-                      <AlertCircle className={`w-5 h-5 ${
-                        point.severity === 'critical' ? 'text-[#dc2626]' :
-                        point.severity === 'high' ? 'text-[#ea580c]' :
-                        point.severity === 'medium' ? 'text-[#ca8a04]' : 'text-[#16a34a]'
+                  <h3 className="text-lg font-bold">Failure Timeline</h3>
+                </div>
+                <div className="space-y-4">
+                  {prediction.predicted_timeline.map((event, i) => (
+                    <div key={i} className="flex gap-4 items-start group">
+                      <div className={`w-3 h-3 rounded-full mt-1.5 shrink-0 ${
+                        event.severity === 'critical' ? 'bg-[#dc2626] shadow-[#dc2626]/50 shadow-lg' :
+                        event.severity === 'high' ? 'bg-[#ea580c]' :
+                        event.severity === 'medium' ? 'bg-[#ca8a04]' : 'bg-[#16a34a]'
                       }`} />
-                      <span className="font-medium">{point.point}</span>
+                      <div className="flex-1 pb-4 border-b border-[var(--border)] last:border-0 group-hover:border-[var(--primary)]/30 transition-colors">
+                        <div className="flex items-center gap-2 mb-1 flex-wrap">
+                          <span className="text-sm font-medium text-[var(--muted-foreground)]">Month {event.month}</span>
+                          <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${
+                            event.severity === 'critical' ? 'bg-[#dc2626]/20 text-[#dc2626]' :
+                            event.severity === 'high' ? 'bg-[#ea580c]/20 text-[#ea580c]' :
+                            event.severity === 'medium' ? 'bg-[#ca8a04]/20 text-[#ca8a04]' : 'bg-[#16a34a]/20 text-[#16a34a]'
+                          }`}>
+                            {event.severity}
+                          </span>
+                        </div>
+                        <p className="text-[var(--foreground)]">{event.event}</p>
+                      </div>
                     </div>
-                    <p className="text-sm text-[#737373]">{point.reason}</p>
+                  ))}
+                </div>
+              </div>
+
+              <div className="bg-gradient-to-br from-[var(--card)] to-[var(--background)] border border-[var(--border)] rounded-2xl p-6 card-hover animate-slide-in stagger-2">
+                <div className="flex items-center gap-3 mb-6">
+                  <div className="w-10 h-10 rounded-xl bg-[var(--primary)]/20 flex items-center justify-center">
+                    <Target className="w-5 h-5 text-[var(--primary)]" />
                   </div>
-                ))}
+                  <h3 className="text-lg font-bold">Critical Failure Points</h3>
+                </div>
+                <div className="space-y-4">
+                  {prediction.failure_points.map((point, i) => (
+                    <div key={i} className="p-4 bg-[var(--background)] rounded-xl border border-[var(--border)] hover:border-[var(--primary)]/30 transition-all">
+                      <div className="flex items-center gap-3 mb-2">
+                        <AlertCircle className={`w-5 h-5 shrink-0 ${
+                          point.severity === 'critical' ? 'text-[#dc2626]' :
+                          point.severity === 'high' ? 'text-[#ea580c]' :
+                          point.severity === 'medium' ? 'text-[#ca8a04]' : 'text-[#16a34a]'
+                        }`} />
+                        <span className="font-semibold">{point.point}</span>
+                      </div>
+                      <p className="text-sm text-[var(--muted-foreground)] ml-8">{point.reason}</p>
+                    </div>
+                  ))}
+                </div>
               </div>
             </div>
 
-            {/* Prevention Strategies */}
-            <div className="bg-[#111111] border border-[#262626] rounded-2xl p-8">
+            <div className="bg-gradient-to-br from-[var(--card)] to-[var(--background)] border border-[var(--border)] rounded-2xl p-6 card-hover animate-slide-in stagger-3">
               <div className="flex items-center gap-3 mb-6">
-                <Shield className="w-6 h-6 text-[#16a34a]" />
-                <h3 className="text-xl font-bold">Prevention Strategies</h3>
+                <div className="w-10 h-10 rounded-xl bg-[#16a34a]/20 flex items-center justify-center">
+                  <Shield className="w-5 h-5 text-[#16a34a]" />
+                </div>
+                <h3 className="text-lg font-bold">Prevention Strategies</h3>
               </div>
-              <div className="grid gap-4">
+              <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
                 {prediction.prevention_strategies.map((strategy, i) => (
-                  <div key={i} className="p-4 bg-[#0a0a0a] rounded-lg border border-[#262626]">
+                  <div key={i} className="p-4 bg-[var(--background)] rounded-xl border border-[var(--border)] hover:border-[#16a34a]/30 transition-all">
                     <div className="flex items-center justify-between mb-2">
                       <div className="flex items-center gap-2">
-                        <CheckCircle2 className="w-5 h-5 text-[#16a34a]" />
-                        <span className="font-medium">{strategy.strategy}</span>
+                        <CheckCircle2 className="w-5 h-5 text-[#16a34a] shrink-0" />
+                        <span className="font-semibold text-sm">{strategy.strategy}</span>
                       </div>
-                      <span className={`text-xs px-2 py-0.5 rounded ${
+                      <span className={`text-xs px-2 py-0.5 rounded-full font-medium shrink-0 ${
                         strategy.priority === 'high' ? 'bg-[#dc2626]/20 text-[#dc2626]' :
                         strategy.priority === 'medium' ? 'bg-[#ca8a04]/20 text-[#ca8a04]' : 'bg-[#16a34a]/20 text-[#16a34a]'
                       }`}>
-                        {strategy.priority} priority
+                        {strategy.priority}
                       </span>
                     </div>
-                    <p className="text-sm text-[#737373]">Impact: {strategy.impact}</p>
+                    <p className="text-xs text-[var(--muted-foreground)] ml-7">{strategy.impact}</p>
                   </div>
                 ))}
               </div>
             </div>
 
-            {/* Analysis Text */}
-            <div className="bg-[#111111] border border-[#262626] rounded-2xl p-8">
+            <div className="bg-gradient-to-br from-[var(--card)] to-[var(--background)] border border-[var(--border)] rounded-2xl p-6 card-hover animate-slide-in stagger-4">
               <div className="flex items-center gap-3 mb-6">
-                <Zap className="w-6 h-6 text-[#ca8a04]" />
-                <h3 className="text-xl font-bold">AI Analysis</h3>
+                <div className="w-10 h-10 rounded-xl bg-[#ca8a04]/20 flex items-center justify-center">
+                  <Zap className="w-5 h-5 text-[#ca8a04]" />
+                </div>
+                <h3 className="text-lg font-bold">AI Analysis</h3>
               </div>
-              <p className="text-[#737373] leading-relaxed">{prediction.analysis_text}</p>
+              <p className="text-[var(--foreground)] leading-relaxed text-lg">{prediction.analysis_text}</p>
             </div>
 
             <button
@@ -329,65 +403,24 @@ export default function Home() {
                 setStage('');
                 setPrediction(null);
               }}
-              className="w-full py-4 bg-[#262626] hover:bg-[#333] rounded-lg font-semibold transition-colors"
+              className="w-full py-4 bg-[var(--muted)] hover:bg-[var(--accent)] border border-[var(--border)] hover:border-[var(--primary)]/30 rounded-xl font-semibold transition-all flex items-center justify-center gap-2"
             >
+              <Sparkles className="w-5 h-5" />
               Analyze Another Plan
             </button>
           </div>
         )}
       </div>
+
+      {step === 'results' && prediction && (
+        <Chat 
+          planTitle={title}
+          planContent={planContent}
+          industry={industry}
+          stage={stage}
+          prediction={prediction}
+        />
+      )}
     </main>
   );
-}
-
-function generateMockPrediction(plan: UserPlan, failureCases: any[]): Prediction {
-  const baseFailureRate = 0.65 + Math.random() * 0.25;
-  
-  const industryRiskFactors: Record<string, string[]> = {
-    'Technology': ['Rapid technology changes', 'Competition from giants', 'Technical debt accumulation'],
-    'Healthcare': ['Regulatory hurdles', 'Reimbursement challenges', 'Clinical trial failures'],
-    'E-commerce': ['Customer acquisition costs', 'Logistics complexity', 'Low margins', 'Return fraud'],
-    'SaaS': ['Churn risk', 'Customer concentration', 'Feature parity pressure'],
-    'Hardware': ['Manufacturing delays', 'Supply chain disruption', 'High capital requirements'],
-    'default': ['Market timing', 'Team execution', 'Funding runway', 'Competitive pressure']
-  };
-
-  const riskFactors = industryRiskFactors[plan.industry] || industryRiskFactors['default'];
-  const selectedFactors = riskFactors.slice(0, 3 + Math.floor(Math.random() * 2));
-
-  const stages = ['idea', 'mvp', 'growth', 'scaling', 'mature'];
-  const currentStageIndex = stages.indexOf(plan.stage) || 0;
-  
-  const months = [
-    { month: 1 + currentStageIndex * 2, event: 'Initial launch with high optimism', severity: 'low' as const },
-    { month: 3 + currentStageIndex * 2, event: 'Early user feedback reveals misalignment', severity: 'medium' as const },
-    { month: 6 + currentStageIndex * 2, event: selectedFactors[0], severity: 'high' as const },
-    { month: 9 + currentStageIndex * 2, event: 'Cash runway concerns emerge', severity: 'critical' as const },
-    { month: 12 + currentStageIndex * 2, event: selectedFactors[1] || 'Market conditions shift', severity: 'critical' as const },
-  ];
-
-  const failurePoints = selectedFactors.map(factor => ({
-    point: factor,
-    severity: (['high', 'medium', 'critical'] as const)[Math.floor(Math.random() * 3)],
-    reason: `Historical analysis of similar ${plan.industry || 'companies'} shows this as a primary failure vector in ${30 + Math.floor(Math.random() * 40)}% of cases.`
-  }));
-
-  const strategies = [
-    { strategy: 'Diversify revenue streams early', priority: 'high' as const, impact: 'Reduces single-point-of-failure risk by 40%' },
-    { strategy: 'Build defensible moats before scaling', priority: 'high' as const, impact: 'Network effects or IP can create sustainable advantage' },
-    { strategy: 'Maintain 18+ months runway', priority: 'medium' as const, impact: 'Market timing should not force bad decisions' },
-    { strategy: 'Validate assumptions with paying customers', priority: 'high' as const, impact: 'Early revenue validates market need' },
-    { strategy: 'Build in regulatory compliance from day one', priority: 'medium' as const, impact: 'Retrofitting is expensive and slow' },
-  ];
-
-  return {
-    id: crypto.randomUUID(),
-    plan_id: plan.id,
-    failure_probability: baseFailureRate,
-    predicted_timeline: months,
-    failure_points: failurePoints,
-    prevention_strategies: strategies.slice(0, 3 + Math.floor(Math.random() * 2)),
-    confidence_score: 0.75 + Math.random() * 0.15,
-    analysis_text: `Analysis of "${plan.title}" reveals significant risk factors common to ${plan.industry || 'early-stage'} ventures at the ${plan.stage || 'idea'} stage. The primary concerns center around ${selectedFactors[0].toLowerCase()} and ${selectedFactors[1]?.toLowerCase() || 'execution challenges'}. Historical data from comparable failures suggests intervention before month 6 is critical. The plan shows promise in its core concept but lacks sufficient differentiation and defensibility mechanisms. Recommended focus on unit economics and customer validation before pursuing aggressive growth.`
-  };
 }
